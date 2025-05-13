@@ -1,0 +1,61 @@
+<?php
+
+function mobilpark_sms_gateway_send_sms($recipient_number, $message_text) {
+  if (empty($recipient_number)) {
+    \Drupal::messenger()->addWarning('Telefon numarası bulunamadı.');
+    return false;
+  }
+
+  $sms = (new \Drupal\sms\Message\SmsMessage())
+    ->addRecipient($recipient_number)
+    ->setMessage($message_text);
+
+  try {
+    $sms_service = \Drupal::service('sms.provider');
+    $sms_service->send($sms);
+    \Drupal::messenger()->addMessage('SMS başarıyla gönderildi: ' . $recipient_number);
+    return true;
+  }
+  catch (\Exception $e) {
+    \Drupal::messenger()->addError('SMS gönderimi başarısız: ' . $e->getMessage());
+    return false;
+  }
+}
+
+function mobilpark_sms_gateway_entity_insert(\Drupal\Core\Entity\EntityInterface $entity) {
+  if ($entity instanceof \Drupal\node\NodeInterface) {
+    $node_type = $entity->getType();
+    $user = $entity->getOwner();
+    $phone_number = $user->phone_number->value ?? NULL;
+
+    $message_templates = [
+      'muteahhit_basvuru' => 'Yeni bir müteahhit başvurusu oluşturuldu: %title%',
+      'basvuru' => 'Yeni bir başvuru oluşturuldu: %title%',
+    ];
+
+    if (isset($message_templates[$node_type])) {
+      $message_text = str_replace(
+        '%title%',
+        $entity->getTitle(),
+        $message_templates[$node_type]
+      );
+      
+      mobilpark_sms_gateway_send_sms($phone_number, $message_text);
+    }
+  }
+}
+
+function mobilpark_sms_gateway_user_insert(\Drupal\User\UserInterface $user) {
+  $phone_number = $user->phone_number->value;
+
+  if (empty($phone_number)) {
+    \Drupal::logger('mobilpark_sms_gateway')->error('Telefon numarası boş.');
+    return;
+  }
+
+  try {
+    $phone_number_verification_provider = \Drupal::service("sms.phone_number.verification");
+    $phone_number_verification_provider->newPhoneVerification($user, $phone_number);
+  } catch (\Exception $e) {
+  }
+}

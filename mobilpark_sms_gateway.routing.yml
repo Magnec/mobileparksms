@@ -1,0 +1,7 @@
+mobilpark_sms_gateway.verify_otp_form:
+  path: "/verify-otp"
+  defaults:
+    _form: '\Drupal\mobilpark_sms_gateway\Form\VerifyOTPForm'
+    _title: "Doğrulama Sayfası"
+  requirements:
+    _permission: "access content"
